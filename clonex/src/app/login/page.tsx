@@ -1,10 +1,17 @@
-import { AuthButtonServer } from '@/app/components/auth-button-server'
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import AuthButtonClient from '../components/auth-button-client'
+export default async function Login () {
+const supabase = createServerComponentClient({ cookies });
 
-export default function Login () {
-  return (
-    <section className="grid place-content-center min-h-screen">
-      <h1 className="text-xl font-bold mb-4">Inicia sesión en DevTer</h1>
-      <AuthButtonServer />
-    </section>
-  )
+const {
+  data: { session },
+} = await supabase.auth.getSession();
+if (session) {
+  redirect("/");
+}
+
+return <AuthButtonClient session={session}/>
+
 }
