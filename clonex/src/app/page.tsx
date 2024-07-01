@@ -1,34 +1,46 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-import { AuthButtonServer } from '@/app/components/auth-button-server'
-import { redirect } from 'next/navigation'
-import { PostLists } from './components/posts-list'
-import { type Database } from './types/database'
-import { ComposePost } from './components/compose-post'
-import { type Post } from './types/posts'
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
+import AuthButtonServer from "./components/auth-button-server";
+import { redirect } from "next/navigation";
+import NewPost from "./components/new-post";
+import Posts from "./components/posts";
 
+export const dynamic = "force-dynamic";
 
-export default async function Home () {
-  const supabase = createServerComponentClient<Database>({ cookies })
-  const { data: { session } } = await supabase.auth.getSession()
+export default async function Home() {
+  const supabase = createServerComponentClient({ cookies });
 
-  if (session === null) {
-    redirect('/login')
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    redirect("/login");
   }
 
-  const { data: posts } = await supabase
-    .from('posts')
-    .select('*, user:users(name, avatar_url, username)')
-    .order('created_at', { ascending: false })
+  const { data } = await supabase
+    .from("posts")
+    .select("*, author: profiles(*), likes(user_id)")
+    .order("created_at", { ascending: false });
+
+  const posts =
+    data?.map((post) => ({
+      ...post,
+      author: Array.isArray(post.author) ? post.author[0] : post.author,
+      user_has_liked_post: !!post.likes.find(
+        (like: any) => like.user_id === session.user.id
+      ),
+      likes: post.likes.length,
+    })) ?? [];
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between">
-
-      <section className="max-w-[600px] w-full mx-auto border-l border-r border-white/20 min-h-screen">
-        <ComposePost userAvatarUrl={session.user?.user_metadata?.avatar_url} />
-        <PostLists posts={posts as Post[]} />
-      </section>
-      <AuthButtonServer />
-    </main>
-  )
+    <div className="w-full max-w-xl mx-auto">
+      <div className="flex justify-between px-4 py-6 border border-gray-800 border-t-0">
+        <h1 className="text-xl font-bold">Home</h1>
+        <AuthButtonServer />
+      </div>
+      <NewPost user={session.user} />
+      <Posts posts={posts} />
+    </div>
+  );
 }
